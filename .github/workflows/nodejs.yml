@@ -1,21 +1,32 @@
-name: Build AdvancedFlagging
+name: build
 
 on: [push, pull_request]
 
 jobs:
   build:
-
+    if: "!contains(github.event.commits[0].message, '[skip ci]')"
     runs-on: ubuntu-latest
-
-    strategy:
-      matrix:
-        node-version: [12.x, 14.x, 15.x]
 
     steps:
     - uses: actions/checkout@v2
-    - name: Using Node ${{ matrix.node-version }}
+    - name: Using Node 15.x
       uses: actions/setup-node@v1
       with:
-        node-version: ${{ matrix.node-version }}
-    - run: npm install 
-    - run: npm run build
+        node-version: 14.x
+    - run: |
+        npm install 
+        npm run build
+        sudo apt-get install dos2unix
+        dos2unix dist/*
+
+    - name: Push compiled dists
+      if: ${{ github.event_name != 'pull_request' }}
+      run: |
+        git config --global user.name "github-actions[bot]"
+        git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+        if [[ -n $(git status --porcelain) ]]; then
+          git add .
+          git commit -m "[skip ci] Generate dist for $(git log -1 --pretty=format:\"%s\")"
+          git push
+        else echo "No changes in dist found!"; fi
